@@ -17,13 +17,12 @@ min_charge  EQU 1      min rate of fuel use based of speed (oats for horses)
 max_charge  EQU 5      max rate e.g. Flank       
 hit_point   EQU 5      points accumilated on castle (objective) strike
 miss_point  EQU 8      points deducted for ordinace miss
-horse_cost  EQU 20
 
 mine_loc    EQU 100    example for a hit
 
 * H0RSE FEED LOCATION: $2000, W
 * HORSE AMOUNT LOCATION: $2500 W
-* GOLD LOCATION: $1600 B
+* GOLD LOCATION: $1600 W
 
 
 *Start of Game
@@ -109,15 +108,7 @@ Stable:
     move.b  #14,D0
     trap    #15
     
-    *display player gold message
-    lea     Gold_msg,A1
-    move.b  #14,D0
-    trap    #15
-    
-    *display player gold amount
-    move.w  $1600, D1
-    move.b  #3,D0
-    trap    #15
+    bsr DisplayGold
     
     lea     crlf,A1
     move.b  #14,D0
@@ -125,31 +116,53 @@ Stable:
     
     move.b  #4,D0
     trap    #15
-    move.b  D1,D2
-    mulu.w    horse_cost,D2
-    add.w     D2, ($1600)
+    
+    muls.w    #20,D1
+    cmp       $1600,D1
+    blt       ErrorHorsePurchase
+    bgt       BuyHorses
+    beq       BuyHorses
     
     *display player gold message
-    lea     Gold_msg,A1
-    move.b  #14,D0
-    trap    #15
-    
-    *display player gold amount
-    move.w  $1600, D1
-    move.b  #3,D0
-    trap    #15
+    bsr DisplayGold
     
     rts
 
     
 *-------------------------------------------------------
-*--------------------Error message----------------------
+*--------------------Error messages---------------------
 *-------------------------------------------------------
 ErrorChoice1:
     lea     Error_msg,A1
     move.b  #14,D0
     trap    #15
     bsr     choice1GE
+    
+ErrorHorsePurchase:
+    lea     Error_msg,A1
+    move.b  #14,D0
+    trap    #15
+    bsr     Stable
+    
+*------------------------------------------------------
+*-------------Display the player's gold----------------
+*------------------------------------------------------
+DisplayGold:
+    lea     Gold_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $1600, D1
+    move.b  #3,D0
+    trap    #15
+    rts
+    
+BuyHorses:
+    move.b  D1,$2500 *store horses inputted in $2500
+    move.b  D1,D2
+    muls.w    #20,D2
+    sub.w     D2, ($1600)
+    rts
 
 
 *-------------------------------------------------------
@@ -552,6 +565,7 @@ health:     ds.w    1
 score:      ds.w    1 reserve space for score
 
     end start
+
 
 
 
