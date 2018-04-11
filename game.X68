@@ -23,17 +23,18 @@ mine_loc    EQU 100    example for a hit
 * H0RSE FEED LOCATION: $2000, W
 * HORSE AMOUNT LOCATION: $2500 W
 * GOLD LOCATION: $1600 W
+* RATE FOR HIRING MERC  $1800 W
 
 
 *Start of Game
 start:
     move.b  #100,$4000 put score/health in memory location $4000
     move.w  #5000,$1600
+    move.w  #0, $2000
+    move.w  #0, $2500
+    move.w  #250,$1800
     lea     $4000,A3   assign address A3 to that memory location
     bsr     welcome    branch to the welcome subroutine
-    bsr     choice1GE
-    bsr     Stable
-    bsr     input      branch to the input subroutine
     bsr     game       branch to the game subroutine
 *Game loop
     org     $3000      the rest of the program is to be located from 3000 onwards
@@ -104,6 +105,7 @@ EvilChoice:
     *-------Stable Text--------
     *--------------------------
 Stable:
+    *buy horses
     lea     Stable_msgStart,A1
     move.b  #14,D0
     trap    #15
@@ -117,15 +119,76 @@ Stable:
     move.b  #4,D0
     trap    #15
     
-    muls.w    #20,D1
-    cmp       $1600,D1
-    blt       ErrorHorsePurchase
-    bgt       BuyHorses
-    beq       BuyHorses
+    bsr       BuyHorses
     
-    *display player gold message
+    *display player gold and horses messages
     bsr DisplayGold
+    bsr DisplayHorses
     
+    *buy feed
+    lea     Stable_msgEnd,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     DisplayGold
+    
+    move.b  #4,D0
+    trap    #15
+    bsr     BuyFeed
+    
+    
+    bsr     endl
+    
+    *display player gold,horses and feed messages
+    bsr DisplayGold
+    bsr DisplayHorses
+    bsr DisplayFeed
+    
+    rts
+    
+    *----------------------------------
+    *-----------Tavern Text------------
+    *----------------------------------
+Tavern:
+    bsr     TavernStart
+    bsr     TavernEnd
+    
+    rts
+    
+TavernStart:
+    lea     BarracksStart_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    *get input
+    move.b  #4,D0
+    trap    #15
+    
+    cmp     #1,D1
+    beq     BarterWon
+
+    cmp     #2,D1
+    bgt     BarterLost
+    
+    rts
+    
+BarterWon:
+    lea     BarterWon_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  #150,$1800
+    bsr     TavernEnd
+    
+BarterLost:
+    lea gameOver_msg_lostBarter,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     replay
+    
+    
+TavernEnd:
     rts
 
     
@@ -144,8 +207,18 @@ ErrorHorsePurchase:
     trap    #15
     bsr     Stable
     
+GameOver_gold:
+    bsr   decorate
+    lea   GameOver_msg_gold,A1
+    move.b  #14,D0
+    trap    #15
+    bsr     decorate
+
+    bsr     replay  
+
+    
 *------------------------------------------------------
-*-------------Display the player's gold----------------
+*-------------Display the player's inventory-----------
 *------------------------------------------------------
 DisplayGold:
     lea     Gold_msg,A1
@@ -155,13 +228,51 @@ DisplayGold:
     move.w  $1600, D1
     move.b  #3,D0
     trap    #15
+    bsr     endl
+    rts
+    
+DisplayHorses:
+    lea     horses_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $2500, D1
+    move.b  #3,D0
+    trap    #15
+    bsr     endl
+    rts
+    
+DisplayFeed:
+    lea     current_feed_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $2000, D1
+    move.b  #3,D0
+    trap    #15
+    bsr     endl
     rts
     
 BuyHorses:
-    move.b  D1,$2500 *store horses inputted in $2500
-    move.b  D1,D2
+    add.w  D1,$2500 *store horses inputted in $2500
+    move.w  D1,D2
     muls.w    #20,D2
     sub.w     D2, ($1600)
+    
+    cmp       #0,$1600
+    blt       GameOver_gold
+    
+    rts
+
+BuyFeed:
+    add.w       D1,($2000) *store feed in $2000
+    move.w      D1,D2
+    muls.w      #1,D2
+    sub.w       D2, ($1600)
+    
+    cmp       #0,$1600
+    blt       GameOver_gold
+    
     rts
 
 
@@ -200,10 +311,15 @@ gameloop:
 update:
     bsr     endl            print a CR and LF
     bsr     decorate        decorate with dots using a loop
-    lea     update_msg,A1   
-    move.b  #14,D0
-    trap    #15
+    
+    bsr     choice1GE
+    
+    bsr     Stable
+    
+    bsr     Tavern
+    
     bsr     decorate
+    bsr     Break
     rts
 *-------------------------------------------------------
 *---------------Draw Mission Updates--------------------
@@ -237,6 +353,21 @@ feed:
     
     bsr     decorate
     rts
+    
+    
+    *-----------------
+    *------Break------
+    *-----------------
+    
+Break:
+      lea   continue_msg, A1
+      move.b  #14,D0
+      trap    #15
+      
+      move.b  #4,D0
+      trap    #15
+      rts
+      
 
 *-------------------------------------------------------
 *--------------------Horses Inventory---------------------
@@ -392,6 +523,14 @@ clear_screen:
 *------------------------Replay-------------------------
 *-------------------------------------------------------
 replay:
+* reset values
+    move.b  #100,$4000 put score/health in memory location $4000
+    move.w  #5000,$1600
+    move.w  #0, $2000
+    move.w  #0, $2500
+    move.w  #250,$1800
+    lea     $4000,A3   assign address A3 to that memory location
+    
     bsr     endl
     lea     replay_msg,A1
     move.b  #14,D0
@@ -451,6 +590,31 @@ welcome_msg2:   dc.b    $0D,$0A
                 dc.b    'Upon reieving this request, you pick up your armour and sword and'
                 dc.b    $0D,$0A
                 dc.b    'leave the castle. ' 
+                dc.b    $0D,$0A,0
+                
+GameOver_msg_gold:   dc.b    $0D,$0A
+                dc.b    'As you travel along the path you come accross a small tavern.'
+                dc.b    $0D,$0A
+                dc.b    'You decide to take a well deserved break from all this leading'
+                dc.b    $0D,$0A
+                dc.b    'business and walk up to the counter. You order your usual and'
+                dc.b    $0D,$0A
+                dc.b    'reach into your coin pouch to pay, but unfortunately all you '
+                dc.b    $0D,$0A
+                dc.b    'find in there is two buttons and a bit of lint. As you try to'
+                dc.b    $0D,$0A
+                dc.b    'come up with an excuse for the bartender, you feel a large'
+                dc.b    $0D,$0A
+                dc.b    'behind you. As you turn you see two large bouncers staring'
+                dc.b    $0D,$0A
+                dc.b    'menacingly at you. As you go to draw your sword they pick you'
+                dc.b    $0D,$0A
+                dc.b    'up and throw you into the nearest puddle, much to the amusement'
+                dc.b    $0D,$0A
+                dc.b    'of the other patrons.'
+                dc.b    $0D,$0A
+                dc.b    $0D,$0A
+                dc.b    'GAME OVER - out of gold'
                 dc.b    $0D,$0A,0
                 
                 *--------------------------------------------
@@ -515,13 +679,69 @@ Stable_msgStart:
                   dc.b    $0D,$0A,0
                   
 Stable_msgEnd:    dc.b    $0D,$0A
-                  dc.b    'How much feed will you buy?'
+                  dc.b    'How much feed will you buy?(each horse needs at least 50 units of feed)'
                   dc.b    $0D,$0A,0
                   
 Gold_msg:         dc.b    $0D,$0A
                   dc.b    'Gold: ',0
                    
-                  
+                   
+                  *----------------------------------------
+                  *--------Text for barracks/tavern--------
+                  *----------------------------------------
+BarracksStart_msg:
+                   dc.b    $0D,$0A
+                   dc.b    'After acquiring the mounts you needed from the stable, you head out'
+                   dc.b    $0D,$0A
+                   dc.b    'to look for people who will fight for your cause. You find yourself'
+                   dc.b    $0D,$0A   
+                   dc.b    'in the barracks of the royal army. As you are walking through, you'
+                   dc.b    $0D,$0A
+                   dc.b    'see a new looking poster on the wall, "Merceneries for Hire". Your'
+                   dc.b    $0D,$0A
+                   dc.b    'eyes light up as you make your way to the tavern to seek out these'
+                   dc.b    $0D,$0A
+                   dc.b    'sellswords. Upon entering, you see a large group of around 250 tough.'
+                   dc.b    $0D,$0A
+                   dc.b    'looking men and women downing tankards of mead and sparring with each'
+                   dc.b    $0D,$0A
+                   dc.b    'other. You pull up a chair at the table with what looks like their'
+                   dc.b    $0D,$0A
+                   dc.b    'leader. He analyses you for a moment before saying, "What is a pretty'
+                   dc.b    $0D,$0A
+                   dc.b    'lass like you doing in a rough place like this, eh?". The both of you'
+                   dc.b    $0D,$0A
+                   dc.b    'chat for a while and when you mention that you are looking for soldiers'
+                   dc.b    $0D,$0A
+                   dc.b    'he immediately buts in, "We are up for hire, miss, and by the looks of'
+                   dc.b    $0D,$0A
+                   dc.b    'that crest on your shoulder, you can afford us". His current asking price'
+                   dc.b    $0D,$0A
+                   dc.b    'is 250 gold per soldier. Will you:'
+                   dc.b    $0D,$0A 
+                   dc.b    '1: Barter for a discount'
+                   dc.b    $0D,$0A
+                   dc.b    '2: Accept his offer'
+                   dc.b    $0D,$0A
+                   dc.b    'Other: Demand they work for free'
+                   dc.b    $0D,$0A,0
+
+gameOver_msg_lostBarter:
+                   dc.b    $0D,$0A 
+                   dc.b    'Before you finished your sentence, you find a sword in your chest. Maybe'
+                   dc.b    $0D,$0A
+                   dc.b    'trying to intimidate these guys was not the brightest of ideas.'
+                   dc.b    $0D,$0A
+                   dc.b    $0D,$0A
+                   dc.b    'GAME OVER'
+                   dc.b    $0D,$0A,0
+
+barterWon_msg:     dc.b    $0D,$0A 
+                   dc.b    'After a bit of deliberation with the rest of the group, the leader returns'
+                   dc.b    $0D,$0A
+                   dc.b    'saying that they can do 150 gold but that is as low as they can go.'
+                   dc.b    $0D,$0A,0  
+            
                   *--------------------------------------------
                   *------------Text for the forest-------------
                   *--------------------------------------------
@@ -531,8 +751,10 @@ feed_msg:       dc.b    'Feed load (each horse needs at least 100 units of feed)
                 dc.b    $0D,$0A
                 dc.b    'Enter feed load : ',0
                 
-current_feed_msg:       dc.b    'Current Feed:'
-                        dc.b    $0D,$0A
+current_feed_msg:       dc.b    'Current Feed: ',0
+
+continue_msg:   dc.b    'Press Enter to continue......',0
+                     
                         
 horses_msg:     dc.b    'Number of horses : ',0
 rate_msg:       dc.b    'One Third[1], Two Thirds[2], Standard Charge[3], ' 
@@ -565,6 +787,7 @@ health:     ds.w    1
 score:      ds.w    1 reserve space for score
 
     end start
+
 
 
 
