@@ -24,6 +24,7 @@ mine_loc    EQU 100    example for a hit
 * HORSE AMOUNT LOCATION: $2500 W
 * GOLD LOCATION: $1600 W
 * RATE FOR HIRING MERC  $1800 W
+* SOLDIER AMOUNT LOCATION $1900 W
 
 
 *Start of Game
@@ -32,9 +33,9 @@ start:
     move.w  #5000,$1600
     move.w  #0, $2000
     move.w  #0, $2500
+    move.w  #0, $1900
     move.w  #250,$1800
     lea     $4000,A3   assign address A3 to that memory location
-    bsr     welcome    branch to the welcome subroutine
     bsr     game       branch to the game subroutine
 *Game loop
     org     $3000      the rest of the program is to be located from 3000 onwards
@@ -85,7 +86,6 @@ choice1GE:
     
     cmp     #2,D1
     beq     EvilChoice
-    bgt     ErrorChoice1
     
      
     
@@ -168,7 +168,7 @@ TavernStart:
     beq     BarterWon
 
     cmp     #2,D1
-    bgt     BarterLost
+    blt     BarterLost
     
     rts
     
@@ -189,18 +189,33 @@ BarterLost:
     
     
 TavernEnd:
+    lea     TavernEnd_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     DisplayGold
+    
+    move.b  #4,D0
+    trap    #15
+    bsr     BuySoldiers
+    
+    bsr     DisplayResources
+    
     rts
+    
+*----------------------------------
+*--------------Forest--------------
+*----------------------------------
+Forest:
+
+
+Forest_Start:
+
 
     
 *-------------------------------------------------------
 *--------------------Error messages---------------------
-*-------------------------------------------------------
-ErrorChoice1:
-    lea     Error_msg,A1
-    move.b  #14,D0
-    trap    #15
-    bsr     choice1GE
-    
+*-------------------------------------------------------    
 ErrorHorsePurchase:
     lea     Error_msg,A1
     move.b  #14,D0
@@ -253,6 +268,28 @@ DisplayFeed:
     bsr     endl
     rts
     
+DisplaySoldiers:
+    lea     current_soldiers_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $1900, D1
+    move.b  #3,D0
+    trap    #15
+    bsr     endl
+    rts
+    
+DisplayResources:
+    bsr DisplayGold
+    bsr DisplayHorses
+    bsr DisplayFeed
+    bsr DisplaySoldiers
+    
+    rts
+    
+*------------------------------------------------------
+*--------------------Buy Resources---------------------
+*------------------------------------------------------
 BuyHorses:
     add.w  D1,$2500 *store horses inputted in $2500
     move.w  D1,D2
@@ -274,6 +311,19 @@ BuyFeed:
     blt       GameOver_gold
     
     rts
+    
+BuySoldiers:
+
+    add.w       D1,($1900) *store soldiers in $1900
+    move.w      D1,D2
+    muls.w      ($1800),D2
+    sub.w       D2, ($1600)
+    
+    cmp       #0,$1600
+    blt       GameOver_gold
+    
+    rts
+
 
 
 *-------------------------------------------------------
@@ -309,17 +359,26 @@ gameloop:
 *  fire, complete mission and return to base
 *------------------------------------------------------- 
 update:
+    bsr     welcome    branch to the welcome subroutine
     bsr     endl            print a CR and LF
     bsr     decorate        decorate with dots using a loop
     
     bsr     choice1GE
+    bsr     decorate
     
     bsr     Stable
+    bsr     decorate
     
     bsr     Tavern
+    bsr     decorate
+    
+    bsr     Forest
     
     bsr     decorate
     bsr     Break
+    
+    bsr     Replay
+    
     rts
 *-------------------------------------------------------
 *---------------Draw Mission Updates--------------------
@@ -528,6 +587,7 @@ replay:
     move.w  #5000,$1600
     move.w  #0, $2000
     move.w  #0, $2500
+    move.w  #0,$1900
     move.w  #250,$1800
     lea     $4000,A3   assign address A3 to that memory location
     
@@ -719,6 +779,7 @@ BarracksStart_msg:
                    dc.b    $0D,$0A
                    dc.b    'is 250 gold per soldier. Will you:'
                    dc.b    $0D,$0A 
+                   dc.b    $0D,$0A 
                    dc.b    '1: Barter for a discount'
                    dc.b    $0D,$0A
                    dc.b    '2: Accept his offer'
@@ -741,6 +802,19 @@ barterWon_msg:     dc.b    $0D,$0A
                    dc.b    $0D,$0A
                    dc.b    'saying that they can do 150 gold but that is as low as they can go.'
                    dc.b    $0D,$0A,0  
+                   
+TavernEnd_msg:     dc.b    $0D,$0A
+                   dc.b    'Deciding it is probably best is you do not anger this guy, you decide to'
+                   dc.b    $0D,$0A
+                   dc.b    'accept their offer. Delighted with this response, the leader glances at'
+                   dc.b    $0D,$0A
+                   dc.b    'his skilled fighters and then turns back to you. "So, how many of us'
+                   dc.b    $0D,$0A
+                   dc.b    'are ye looking to hire?"'
+                   dc.b    $0D,$0A
+                   dc.b    $0D,$0A
+                   dc.b    'How many soldiers will you hire?'
+                   dc.b    $0D,$0A,0
             
                   *--------------------------------------------
                   *------------Text for the forest-------------
@@ -752,6 +826,8 @@ feed_msg:       dc.b    'Feed load (each horse needs at least 100 units of feed)
                 dc.b    'Enter feed load : ',0
                 
 current_feed_msg:       dc.b    'Current Feed: ',0
+
+current_soldiers_msg:   dc.b    'Current Soldiers: ',0
 
 continue_msg:   dc.b    'Press Enter to continue......',0
                      
@@ -787,6 +863,7 @@ health:     ds.w    1
 score:      ds.w    1 reserve space for score
 
     end start
+
 
 
 
