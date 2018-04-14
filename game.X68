@@ -164,11 +164,11 @@ TavernStart:
     move.b  #4,D0
     trap    #15
     
-    cmp     #1,D1
-    beq     BarterWon
-
     cmp     #2,D1
     blt     BarterLost
+    
+    cmp     #1,D1
+    beq     BarterWon
     
     rts
     
@@ -200,6 +200,10 @@ TavernEnd:
     bsr     BuySoldiers
     
     bsr     DisplayResources
+ 
+    lea     Tavern_final_msg,A1
+    move.b  #14,D0
+    trap    #15   
     
     rts
     
@@ -207,20 +211,118 @@ TavernEnd:
 *--------------Forest--------------
 *----------------------------------
 Forest:
+    bsr Forest_Start
 
 
 Forest_Start:
+
+    lea     Forest_start_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     ForestChoice
+    rts
+    
+ForestChoice:
+    lea     Forest_choice_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #4,D0
+    trap    #15
+    
+    cmp     #1,D1
+    beq     ForestDescription
+    
+    cmp     #2,D1
+    beq     LeftPath
+    
+    cmp     #3,D1
+    beq     RightPath
+    
+    rts
+    
+ForestDescription:
+    lea     Forest_description_msg_road,A1
+    move.b  #14,D0
+    trap    #15
+    
+    lea     Forest_choice_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #4,D0
+    trap    #15
+    
+    cmp     #1,D1
+    beq     ForestDescription
+    
+    cmp     #2,D1
+    beq     LeftPath
+    
+    cmp     #3,D1
+    beq     RightPath
+    
+    rts
+    
+LeftPath:
+    bsr     Rest
+    bsr     DisplayResources
+    
+    lea     Forest_left_path,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #4,D0
+    trap    #15
+    
+    cmp     #1,D1
+    beq     Scout
+    
+    cmp     #2,D1
+    beq     Continue
+    
+Scout:
+    lea     scout_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    sub.w   #15, ($1900) * take soldiers
+    
+    sub.w   #150,($2000) * take feed
+    
+    sub.w   #3,($2500)  *take horses
+    
+    move.w  #0, D1
+    bsr     BuyHorses
+    bsr     BuySoldiers
+    bsr     BuyFeed
+    
+    bsr     DisplayResources
+    
+    rts
+
+Continue:
+    rts
+
+RightPath:
+    bsr     Rest
+    bsr     DisplayResources
+    rts
+    
+Rest:
+    lea     Rest_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     loseHorses
+    rts
 
 
     
 *-------------------------------------------------------
 *--------------------Error messages---------------------
 *-------------------------------------------------------    
-ErrorHorsePurchase:
-    lea     Error_msg,A1
-    move.b  #14,D0
-    trap    #15
-    bsr     Stable
     
 GameOver_gold:
     bsr   decorate
@@ -229,7 +331,25 @@ GameOver_gold:
     trap    #15
     bsr     decorate
 
-    bsr     replay  
+    bsr     replay
+
+GameOver_soldiers:
+    bsr     decorate
+    lea     GameOver_msg_soldiers,A1
+    move.b  #14,D0
+    trap    #15
+    bsr     decorate
+
+    bsr     replay 
+
+GameOver_horses:
+    bsr     decorate
+    lea     GameOver_msg_horses,A1
+    move.b  #14,D0
+    trap    #15
+    bsr     decorate
+
+    bsr     replay 
 
     
 *------------------------------------------------------
@@ -323,6 +443,32 @@ BuySoldiers:
     blt       GameOver_gold
     
     rts
+    
+    *---------------------
+    *---Lose Resourses----
+    *---------------------
+    
+LoseHorses:
+    move.w  ($2500),D4 *amount of horses 
+    move.w  ($2000),D5 *amount of feed
+    
+    move.w   D3,D6
+    muls.w  #50, D6
+    cmp     D6,D5
+    bgt     FeedHorses
+    blt     gameOver_horses
+    
+    rts
+    
+FeedHorses:
+    move.w  ($2500),D3
+    move.w   D3,D4
+    muls.w  #50, D4
+    
+    sub.w   D4, ($2000)
+    
+    rts
+    
 
 
 
@@ -815,10 +961,148 @@ TavernEnd_msg:     dc.b    $0D,$0A
                    dc.b    $0D,$0A
                    dc.b    'How many soldiers will you hire?'
                    dc.b    $0D,$0A,0
+                   
+Tavern_final_msg:  dc.b    $0D,$0A
+                   dc.b    'Happy with your final offer, the leader stands up, enthusiastically shakes'
+                   dc.b    $0D,$0A
+                   dc.b    'your hand and raises a tankard in your honour. You and your newfound army'
+                   dc.b    $0D,$0A
+                   dc.b    'set off at dawn to seek the threat of this kingdoms peace at last'
+                   dc.b    $0D,$0A,0
             
                   *--------------------------------------------
                   *------------Text for the forest-------------
                   *--------------------------------------------
+Forest_start_msg: dc.b    $0D,$0A
+                  dc.b    'Dawn soon arrives as you pack your things. Ready to finally head out, you'
+                  dc.b    $0D,$0A
+                  dc.b    'head out to join your army, who are preparing your horses. You take out'
+                  dc.b    $0D,$0A 
+                  dc.b    'the slightly tattered map and head in the direction of the mountain. As'
+                  dc.b    $0D,$0A
+                  dc.b    'you progress, you enter a large forest. Further inspection of the map'
+                  dc.b    $0D,$0A 
+                  dc.b    'reveals that you have entered the "Lost Woods", known for its tendancy'
+                  dc.b    $0D,$0A 
+                  dc.b    'to get adventurers lost, never to return. You continue along the path'
+                  dc.b    $0D,$0A 
+                  dc.b    'until you come accross a fork in the road.'
+                  dc.b    $0D,$0A 
+                  dc.b    $0D,$0A,0
+                  
+Forest_choice_msg:
+                  dc.b    'What will you do?'
+                  dc.b    $0D,$0A 
+                  dc.b    $0D,$0A
+                  dc.b    '1. Look around the area'
+                  dc.b    $0D,$0A 
+                  dc.b    '2. Take the left path'
+                  dc.b    $0D,$0A 
+                  dc.b    '3. Take the right path' 
+                  dc.b    $0D,$0A,0  
+
+Forest_description_msg_road:
+                  dc.b    $0D,$0A
+                  dc.b    'Upon closer inspection, you see thst the path to the right seems to'
+                  dc.b    $0D,$0A
+                  dc.b    'have more mud and water on it that the other path. The path to the'
+                  dc.b    $0D,$0A
+                  dc.b    'left seems to have more foot traffic on it. There is also some evidence'
+                  dc.b    $0D,$0A
+                  dc.b    'of horse prints on the left path.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A,0 
+
+Forest_left_path:
+                  dc.b    $0D,$0A
+                  dc.b    'You decide that the left path looks the safest and choose to lead your'
+                  dc.b    $0D,$0A
+                  dc.b    'army that way. The road seems normal for about half a day then, out of'
+                  dc.b    $0D,$0A
+                  dc.b    'nowhere, you hear a loud scream coming from a small clump of trees'
+                  dc.b    $0D,$0A
+                  dc.b    'on the other side of a clearing.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'What will you do?'
+                  dc.b    $0D,$0A
+                  dc.b    '1. Send a scout to see what the sound was'
+                  dc.b    $0D,$0A
+                  dc.b    '2. Continue as if nothing happened'
+                  dc.b    $0D,$0A,0
+
+Scout_msg:
+                  dc.b    $0D,$0A
+                  dc.b    'You send two of your weakest looking soldiers towards the trees to scout'
+                  dc.b    $0D,$0A
+                  dc.b    'the area. A few seconds pass, then an minute, then an hour. After about'
+                  dc.b    $0D,$0A
+                  dc.b    'an hour and a half, you are about to give up hope of them returning, until'
+                  dc.b    $0D,$0A
+                  dc.b    'you see one of them running towards you in a blind panic. You see a large'
+                  dc.b    $0D,$0A
+                  dc.b    'of flying creatures chasing him. As they get closer to the sunlight of the'
+                  dc.b    $0D,$0A
+                  dc.b    'forest clearing, you can see their true form. "HARPIES!!" A group of about'
+                  dc.b    $0D,$0A
+                  dc.b    'twenty harpies swoop down and start attacking your army. After every last'
+                  dc.b    $0D,$0A
+                  dc.b    'one is slain, you  access the damage of the battle.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'You lose 15 soldiers, 150 feed and 3 horses in the skirmish.'
+                  dc.b    $0D,$0A,0
+                  
+
+Forest_right_path: 
+                  
+Rest_msg:         dc.b    $0D,$0A
+                  dc.b    'As the sun begins to set, you and your comerades decide to camp for'
+                  dc.b    $0D,$0A
+                  dc.b    'the night. You feed your horses and call it a night.'
+                  dc.b    $0D,$0A,0
+      
+Horse_loss_msg:
+                dc.b    $0D,$0A
+                dc.b    'Horses without feed are lost.'
+                dc.b    $0D,$0A,0
+                
+gameOver_msg_Soldiers:
+                dc.b    $0D,$0A
+                dc.b    'Tired after a long day, you decide to call it a night early and'
+                dc.b    $0D,$0A
+                dc.b    'make camp early. As dawn breaks, you find yourself feeling a'
+                dc.b    $0D,$0A
+                dc.b    'wierd coldness along your face. You jump awake and reach for'
+                dc.b    $0D,$0A
+                dc.b    'your sword, only to find that it, along with all your bags and'
+                dc.b    $0D,$0A
+                dc.b    'even the tent you were sleeping in, were stolen by what little remains'
+                dc.b    $0D,$0A
+                dc.b    'of your once great army. Guess mercenaries are not the wisest choice'
+                dc.b    $0D,$0A
+                dc.b    'when you want a loyal army.'
+                dc.b    $0D,$0A
+                dc.b    $0D,$0A
+                dc.b    'GAME OVER - no soldiers'
+                dc.b    $0D,$0A,0
+
+gameOver_msg_Horses:
+                dc.b    $0D,$0A
+                dc.b    'As you set up your tent for the night, one of the soldiers sprints'
+                dc.b    $0D,$0A
+                dc.b    'over to you shouting "THE HORSES! THE HORSES!. You turn to see what'
+                dc.b    $0D,$0A
+                dc.b    'remains of your horses being chased by goblins into the forest and'
+                dc.b    $0D,$0A
+                dc.b    'out of view. You watch helplessly as your only means of travel disappear'
+                dc.b    $0D,$0A
+                dc.b    'into the horizon.'
+                dc.b    $0D,$0A
+                dc.b    $0D,$0A
+                dc.b    'GAME OVER - no horses'
+                dc.b    $0D,$0A,0
+                
 
 
 feed_msg:       dc.b    'Feed load (each horse needs at least 100 units of feed)'
@@ -870,6 +1154,6 @@ score:      ds.w    1 reserve space for score
 
 
 *~Font name~Courier New~
-*~Font size~10~
+*~Font size~12~
 *~Tab type~1~
 *~Tab size~4~
