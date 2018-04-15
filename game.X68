@@ -30,7 +30,7 @@ mine_loc    EQU 100    example for a hit
 *Start of Game
 start:
     move.b  #100,$4000 put score/health in memory location $4000
-    move.w  #5000,$1600
+    move.w  #10000,$1600
     move.w  #0, $2000
     move.w  #0, $2500
     move.w  #0, $1900
@@ -61,7 +61,7 @@ welcome:
     trap    #15             trap and interpret value in D0
     
     bsr     endl
-    lea      welcome_msg2,A1  
+    lea     welcome_msg2,A1  
     move.b  #14,D0         
     trap    #15            
     
@@ -212,6 +212,7 @@ TavernEnd:
 *----------------------------------
 Forest:
     bsr Forest_Start
+    rts
 
 
 Forest_Start:
@@ -231,13 +232,16 @@ ForestChoice:
     move.b  #4,D0
     trap    #15
     
-    cmp     #1,D1
+    move.l  #1,D3
+    cmp     D3,D1
     beq     ForestDescription
     
-    cmp     #2,D1
+    move.l  #2,D3
+    cmp     D3,D1
     beq     LeftPath
     
-    cmp     #3,D1
+    move.l  #3,D3
+    cmp     D3,D1
     beq     RightPath
     
     rts
@@ -254,13 +258,16 @@ ForestDescription:
     move.b  #4,D0
     trap    #15
     
-    cmp     #1,D1
+    move.l  #1,D2
+    cmp     D2,D1
     beq     ForestDescription
     
-    cmp     #2,D1
+    move.l  #2,D2
+    cmp     D2,D1
     beq     LeftPath
     
-    cmp     #3,D1
+    move.l  #3,D2
+    cmp     D2,D1
     beq     RightPath
     
     rts
@@ -276,52 +283,199 @@ LeftPath:
     move.b  #4,D0
     trap    #15
     
-    cmp     #1,D1
+    move.w  #1,D2
+    cmp     D2,D1
     beq     Scout
     
-    cmp     #2,D1
+    move.w  #2,D2
+    cmp     D2,D1
     beq     Continue
     
+    move.w  #0,D2
+    rts
 Scout:
     lea     scout_msg,A1
     move.b  #14,D0
     trap    #15
     
-    sub.w   #15, ($1900) * take soldiers
     
-    sub.w   #150,($2000) * take feed
+    move.w  $1900, D4
+    sub.w   #15, D4 * take soldiers
+    move.w  D4, $1900
     
-    sub.w   #3,($2500)  *take horses
+    move.w  $2000,D4
+    sub.w   #150,D4 * take feed
+    move.w  D4, $2000
     
-    move.w  #0, D1
-    bsr     BuyHorses
-    bsr     BuySoldiers
-    bsr     BuyFeed
+    move.w  $2500,D4
+    sub.w   #3,D4       *take horses
+    move.w  D4, $2500
+    
+    bsr     CheckGameOver
     
     bsr     DisplayResources
     
-    rts
+    move.b  #0,D1
+
 
 Continue:
-    rts
+    lea     continue_text,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #0,D1
+
 
 RightPath:
     bsr     Rest
     bsr     DisplayResources
+    
+    lea     forest_right_path,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #4,D0
+    trap    #15
+    
+    move.w  #1,D2
+    cmp     D2,D1
+    beq     Leave_horses
+    
+    move.w  #2,D2
+    cmp     D2,D1
+    beq     Save_horses
+    
+    move.b  #0,D1
     rts
     
+    
+Save_horses:
+    lea     Save_horses_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $2500,D4
+    sub.w   #2,D4       *take horses
+    move.w  D4, $2500
+    
+    move.w  $1900, D4
+    sub.w   #5, D4 * take soldiers
+    move.w  D4, $1900
+    
+    bsr     CheckGameOver
+    
+    move.b  #0,D1
+    bsr     DisplayResources
+    
+    move.b  #0,D1
+    rts
+ 
+
+Leave_horses:
+    lea     Leave_horses_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.w  $2500,D4
+    sub.w   #5,D4       *take horses
+    move.w  D4, $2500
+    
+    bsr     CheckGameOver
+    
+    move.b  #0,D1
+    bsr     DisplayResources
+    
+    move.b  #0,D1
+      
+
 Rest:
     lea     Rest_msg,A1
     move.b  #14,D0
     trap    #15
     
     bsr     loseHorses
+    bsr     DisplayResources
     rts
+    
+
+    
+*--------------------------------------------------
+*---------------Mountain/Castle--------------------
+*--------------------------------------------------
+Mountain:
+    bsr MountainStart
+    
+    
+    rts
+    
+
+
+MountainStart:
+    lea     Mountain_start_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.b  #4,D0
+    trap    #15
+    
+    move.l  #1,D3
+    cmp     D3,D1
+    beq     Killed
+    
+    move.l  #2,D3
+    cmp     D3,D1
+    beq     Captured
+    
+    move.l  #3,D3
+    cmp     D3,D1
+    beq     Fight
+    
+    rts
+    
+Killed:
+    lea     Killed_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     Replay
+
+Captured:
+    lea     Captured_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     Replay
+
+Fight:
+    lea     fight_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    move.l  #15,D3
+    cmp     #15,($1900) 
+    bgt     Fight_lost
+    beq     Fight_won
+    blt     Fight_won
+    
+Fight_won:
+    lea     fight_won_msg,A1
+    move.b  #14,D0
+    trap    #15
+    
+    bsr     Replay
+
+Fight_lost:    
+    lea     fight_lost_msg,A1
+    move.b  #14,D0
+    trap    #15
+
+    bsr     Replay
+
 
 
     
 *-------------------------------------------------------
-*--------------------Error messages---------------------
+*-------------------game over messages------------------
 *-------------------------------------------------------    
     
 GameOver_gold:
@@ -350,6 +504,20 @@ GameOver_horses:
     bsr     decorate
 
     bsr     replay 
+    
+CheckGameOver:  
+    cmp     #0, $1600 * gold
+    blt     GameOver_gold
+    
+    cmp     #0, $2500 * horses
+    blt     GameOver_horses
+    
+    cmp     #0, $1900 * soldiers
+    blt     GameOver_soldiers
+    
+    rts
+    
+    
 
     
 *------------------------------------------------------
@@ -458,6 +626,8 @@ LoseHorses:
     bgt     FeedHorses
     blt     gameOver_horses
     
+    divs.w  #50, D6
+    
     rts
     
 FeedHorses:
@@ -517,8 +687,16 @@ update:
     
     bsr     Tavern
     bsr     decorate
+    bsr     break
+    
+    bsr     clear_screen
     
     bsr     Forest
+    bsr     decorate
+    
+    bsr     Break
+    bsr     Clear_screen
+    bsr     Mountain
     
     bsr     decorate
     bsr     Break
@@ -730,7 +908,7 @@ clear_screen:
 replay:
 * reset values
     move.b  #100,$4000 put score/health in memory location $4000
-    move.w  #5000,$1600
+    move.w  #10000,$1600
     move.w  #0, $2000
     move.w  #0, $2500
     move.w  #0,$1900
@@ -1053,8 +1231,206 @@ Scout_msg:
                   dc.b    'You lose 15 soldiers, 150 feed and 3 horses in the skirmish.'
                   dc.b    $0D,$0A,0
                   
+Continue_text:
+                  dc.b    $0D,$0A
+                  dc.b    'Ignoring the obvious trap, you decide to lead your army onwards towards'
+                  dc.b    $0D,$0A
+                  dc.b    'the mountains. As you walk past the clearing you see something fly through'
+                  dc.b    $0D,$0A
+                  dc.b    'the forest in the corner of your eye. As you look that direction, you'
+                  dc.b    $0D,$0A
+                  dc.b    'do not notice anything out of the ordinary. Convinced your mind must be'
+                  dc.b    $0D,$0A
+                  dc.b    'playing tricks on you, you march ahead towards the mountains.'
+                  dc.b    $0D,$0A,0
+
 
 Forest_right_path: 
+                  dc.b    $0D,$0A
+                  dc.b    'Not sure which way to go, you randomly pick the right path. As you'
+                  dc.b    $0D,$0A
+                  dc.b    'travel, you notice the road getting more and more waterlogged until'
+                  dc.b    $0D,$0A
+                  dc.b    'you reach what looks like a swamp. You carefully proceed through the'
+                  dc.b    $0D,$0A
+                  dc.b    'water, trying your best not to get stuck. As your army progress, you'
+                  dc.b    $0D,$0A
+                  dc.b    'notice tiny unnatural ripples in the water. Before you can shout a'
+                  dc.b    $0D,$0A
+                  dc.b    'warning, several of the horses in front of you suddenly fall into the'
+                  dc.b    $0D,$0A
+                  dc.b    'water, as if something dragged them in. As soon as this happens, about'
+                  dc.b    $0D,$0A
+                  dc.b    'twenty giant crab-like creatures known as chuul burst out of the water'
+                  dc.b    $0D,$0A
+                  dc.b    'with a primal hunger in their eyes. They seem to completely ignore you'
+                  dc.b    $0D,$0A
+                  dc.b    'and your army and move towards the submerged horses.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'What will you do?'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    '1. Leave the horses and try to get away'
+                  dc.b    $0D,$0A
+                  dc.b    '2. Try to save the horses and the soldiers on them'
+                  dc.b    $0D,$0A,0
+                  
+Save_horses_msg:
+                  dc.b    $0D,$0A
+                  dc.b    'You immediately order your men to kill all the chuuls and pull out'
+                  dc.b    $0D,$0A
+                  dc.b    'the stuck horses. They sprint over and slay as many of them as they'
+                  dc.b    $0D,$0A
+                  dc.b    'can before trying to pull out the horses left alive after the attack.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'You lose 2 horses and 5 soldiers in the ambush'
+                  dc.b    $0D,$0A,0
+                  
+Leave_horses_msg:
+                  dc.b    $0D,$0A
+                  dc.b    'You decide to play it save and sacrifice the men and horses for the'
+                  dc.b    $0D,$0A
+                  dc.b    'good of the kingdom and use this opportunity to lead your army to'
+                  dc.b    $0D,$0A
+                  dc.b    'safety.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'You sacrifice 5 horses to the chuuls'
+                  dc.b    $0D,$0A,0
+                  
+                  *-----------------------------------
+                  *------------Castle Text------------
+                  *-----------------------------------
+                  
+Mountain_start_msg:
+                  dc.b    $0D,$0A
+                  dc.b    'You finally reach the end of the Lost Woods after several days of'
+                  dc.b    $0D,$0A
+                  dc.b    'travel. As you take your first step out into the sunlight, you are'
+                  dc.b    $0D,$0A
+                  dc.b    'greeted with a magnificent sight. A huge darkstone castle stands'
+                  dc.b    $0D,$0A
+                  dc.b    'before you bathed in a magical light, as if it is beyond some sort'
+                  dc.b    $0D,$0A
+                  dc.b    'of portal. You cautiously lead what remains of your army into the'
+                  dc.b    $0D,$0A
+                  dc.b    'portal and you are teleported to the top of the mountain you were'
+                  dc.b    $0D,$0A
+                  dc.b    'sent to investigate. The iron drawbridge slowly lowers in front'
+                  dc.b    $0D,$0A
+                  dc.b    'of you as a hooded figure becons you to enter the courtyard. You'
+                  dc.b    $0D,$0A
+                  dc.b    'slowly progress forward, as if guided by some sort of force, into'
+                  dc.b    $0D,$0A
+                  dc.b    'the courtyard of the castle where the drawbridge quickly raises behind'
+                  dc.b    $0D,$0A
+                  dc.b    'you and your army. You watch as the figure slowly raises his hand. As'
+                  dc.b    $0D,$0A
+                  dc.b    'he does, a horde of monsters flood the courtyard from all angles. They'
+                  dc.b    $0D,$0A
+                  dc.b    'encircle you and your army in seconds, leaving you no time to react.'
+                  dc.b    $0D,$0A
+                  dc.b    'You see the figure on the balcony slowly take off their hood to reveal'
+                  dc.b    $0D,$0A
+                  dc.b    'a dark elven face with long black hair and intense purple eyes. He looks'
+                  dc.b    $0D,$0A
+                  dc.b    'in your direction and as he opens his mouth you hear a deep, menacing'
+                  dc.b    $0D,$0A
+                  dc.b    'voice "You dare to bring an army here, into the plane of Beshaba, Lord'
+                  dc.b    $0D,$0A
+                  dc.b    'of Darkness and Deciet?"'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'How will you respond?'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    '1. I have made a terrible mistake. Let me go back to my realm and I'
+                  dc.b    $0D,$0A
+                  dc.b    'shall never bother you again.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    '2. I bring this army as a sacrifice to you, my lord.'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    '3. I do not care who you are, you are dying by my hand, demon'
+                  dc.b    $0D,$0A,0
+                  
+Killed_msg:
+                  dc.b    $0D,$0A
+                  dc.b    'Before you even finish your sentence, the elf shoots a blue bolt of'
+                  dc.b    $0D,$0A
+                  dc.b    'lightning into your chest. As you fall, the last words you hear are,'
+                  dc.b    $0D,$0A
+                  dc.b    '"I do not show mercy, insolent mortal"'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'GAME OVER'
+                  dc.b    $0D,$0A,0
+
+Captured_msg:     dc.b    $0D,$0A
+                  dc.b    'The dread lord smiles as he sees you have remained faithful to him'
+                  dc.b    $0D,$0A
+                  dc.b    'as you have travelled. He gladly slaughters all of your army in'
+                  dc.b    $0D,$0A
+                  dc.b    'front of you. As he turns to you, he places his hand on your'
+                  dc.b    $0D,$0A
+                  dc.b    'shoulder and says "You have served me well mortal, however your'
+                  dc.b    $0D,$0A
+                  dc.b    'time on this plane is up. May you live forever in the void."'
+                  dc.b    $0D,$0A
+                  dc.b    'He reaches behind his back and stabs you with a cursed dagger.'
+                  dc.b    $0D,$0A
+                  dc.b    'As the darkness takes you, you finally feel at peace, content with'
+                  dc.b    $0D,$0A
+                  dc.b    'the fact that you sole duty to your lord has been fulfilled'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'THE END - Bad End'
+                  dc.b    $0D,$0A,0
+
+fight_msg:        dc.b    $0D,$0A
+                  dc.b    '"You unfaithful cur!" The dread lord pulls out his ebony greatsword and'
+                  dc.b    $0D,$0A
+                  dc.b    'leaps into the courtyard in front of you. His army of monsters moves'
+                  dc.b    $0D,$0A
+                  dc.b    'and ready themselves to attack.'
+                  dc.b    $0D,$0A,0
+                  
+fight_won_msg:    dc.b    $0D,$0A
+                  dc.b    'The battle is fierce. Your battle hardened warriors fight valiently in'
+                  dc.b    $0D,$0A
+                  dc.b    'your honour and soon it is just you, your army and the dread lord left'
+                  dc.b    $0D,$0A
+                  dc.b    'standing on the batlefield. You stare him in the eyes and say your last'
+                  dc.b    $0D,$0A
+                  dc.b    'words as commander, "Kill Him". You watch as you army charges past you'
+                  dc.b    $0D,$0A
+                  dc.b    'swarm the lord. Before he is dead you walk up to him, look him in the'
+                  dc.b    $0D,$0A
+                  dc.b    'eyes one last time, and bury you sword in his chest'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'THE END - Good End'
+                  dc.b    $0D,$0A,0
+
+fight_lost_msg:   dc.b    $0D,$0A
+                  dc.b    'You fight your best, but ultimately the dread lord and his army are too'
+                  dc.b    $0D,$0A
+                  dc.b    'strong for your small army to face and one by one they all fall. You are'
+                  dc.b    $0D,$0A
+                  dc.b    'the only one left standing among a sea of corpses as the dread lord'
+                  dc.b    $0D,$0A
+                  dc.b    'slowly walks towards you. He looks down on you in triumph and as he'
+                  dc.b    $0D,$0A
+                  dc.b    'lifts his sword to deal the final blow, he looks at you and whispers,'
+                  dc.b    $0D,$0A
+                  dc.b    '"May you live forever in the void, my dear".'
+                  dc.b    $0D,$0A
+                  dc.b    $0D,$0A
+                  dc.b    'GAME OVER (need 25 soldiers to get good end)'  
+                  
                   
 Rest_msg:         dc.b    $0D,$0A
                   dc.b    'As the sun begins to set, you and your comerades decide to camp for'
@@ -1147,6 +1523,8 @@ health:     ds.w    1
 score:      ds.w    1 reserve space for score
 
     end start
+
+
 
 
 
