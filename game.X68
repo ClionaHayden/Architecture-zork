@@ -404,8 +404,6 @@ Rest:
 *--------------------------------------------------
 Mountain:
     bsr MountainStart
-    
-    
     rts
     
 
@@ -418,15 +416,15 @@ MountainStart:
     move.b  #4,D0
     trap    #15
     
-    move.l  #1,D3
+    move.w  #1,D3
     cmp     D3,D1
     beq     Killed
     
-    move.l  #2,D3
+    move.w  #2,D3
     cmp     D3,D1
     beq     Captured
     
-    move.l  #3,D3
+    move.w  #3,D3
     cmp     D3,D1
     beq     Fight
     
